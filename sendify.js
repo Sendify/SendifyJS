@@ -590,5 +590,22 @@ getPreviousPublications: function(nodeName,num){
         this.node = null;
         this.jid = null;
         this.pass = null;
-  }
+  },
+    /** Function: sendIQ
+     *  Helper function to send IQ stanzas.
+     *
+     *  Parameters:
+     *    (XMLElement) elem - The stanza to send.
+     *    (Function) callback - The callback function for a successful request.
+     *    (Function) errback - The callback function for a failed or timed 
+     *      out request.  On timeout, the stanza will be null.
+     *    (Integer) timeout - The time specified in milliseconds for a 
+     *      timeout to occur.
+     *
+     *  Returns:
+     *    The id used to send the IQ.
+    */
+    sendIQ: function(elem, callback, errback, timeout) {
+	Sendify.connection.sendIQ(elem,callback,errback,timeout);
+    }
 };
