@@ -1,3 +1,4 @@
+
 /*
  * Authors
  * Vamshi K Chenna
@@ -32,7 +33,6 @@ service : null,
 myroster: null,
 connection : null,
 
-
     /** Constants: XMPP Namespace Constants
      *  Common namespace constants from the XMPP RFCs and XEPs.
      *
@@ -50,6 +50,7 @@ connection : null,
      *  NS.BIND - XMPP Binding namespace from RFC 3920.
      *  NS.SESSION - XMPP Session namespace from RFC 3920.
      */
+
 
 NS: {
         HTTPBIND: "http://jabber.org/protocol/httpbind",
@@ -137,28 +138,19 @@ connect : function (BOSH_URL) {
  *    false if the login was unsuccessfull.
  */
 
-login : function(){
+login : function(success){
     console.log(this.jid);
     console.log(this.pass);
     console.log(this.connection);
-    x = false;
     this.connection.connect(this.jid, this.pass, function (status) {
         if (status === Sendify.Status.CONNECTED) {
-             console.log("Connected and Logged in!");
-            Sendify.getRoster();
+             //console.log("Connected and Logged in! "+x);
+            //Sendify.getRoster();
+            success();
         } else if (status === Sendify.Status.DISCONNECTED) {
                console.log("Disconnected!");
     }});
-},
-
-slee :function ( part ) {
-    if( part == 0 ) {
-        console.log( "before sleep" );
-        setTimeout( function() { Sendify.slee( 1 ); }, 3000 );
-    } else if( part == 1 ) {
-        console.log( "after sleep" );
-    }
-},
+ },
 
 /** Function: getRoster
  *  get the roster of the user. A roster is a list of contacts to which the user is subscribed to.
@@ -170,9 +162,9 @@ slee :function ( part ) {
  *     (structure) roster {roster.jid,roster.sub,roster.boj,roster.name}:  contatns  the arrays of name, jid, subscribtion status of the contacts to which the user is subscribed to.
  */
 
-getRoster: function(){
-//  console.log("inside getRoaster");
-    var iq = $iq({type: 'get'}).c('query', {xmlns: 'jabber:iq:roster'});
+getRoster: function(success,err){
+  console.log("inside getRoaster");
+  	var iq = $iq({type: 'get'}).c('query', {xmlns: 'jabber:iq:roster'});
     this.connection.sendIQ(iq,function(iq){
               i = 0;
               result = {};
@@ -182,7 +174,7 @@ getRoster: function(){
               result.obj = [];
               $(iq).find('item').each(function () {
                   result.jid[i] = $(this).attr('jid');
-                  result.name[i] = $(this).attr('name') || jid; //???
+                  result.name[i] = $(this).attr('name') || result.jid[i]; //???
               		result.sub[i] = $(this).attr('subscription');
 
             			result.obj[i] = this;
@@ -190,8 +182,12 @@ getRoster: function(){
               });
               console.log(result);
               Sendify.myroster = result;
-              Sendify.service = "pubsub.sendify";
-              Sendify.sendMessage("try@sendify","asdfasdf","chat");
+              //Sendify.service = "pubsub.sendify";
+              Sendify.connection.send($pres());
+              success(result);
+
+              //Sendify.publishNode("asdfsadf asdf ","latest_books");
+              //Sendify.sendMessage("try@sendify","asdfasdf","chat");
               //Sendify.subscribeJidPresence("try@sendify","test");
               //Sendify.getPreviousPublications("latest_books",4);
               //Sendify.deleteNode("657511917");
@@ -200,8 +196,85 @@ getRoster: function(){
               //Sendify.subscribeNode("657511917");
               //Sendify.createNode("");
               //return result;
-    });
+    },err);
 },
+
+/** Function: addHandler
+     *  Add a stanza handler for the connection.
+     *
+     *  This function adds a stanza handler to the connection.  The
+     *  handler callback will be called for any stanza that matches
+     *  the parameters.  Note that if multiple parameters are supplied,
+     *  they must all match for the handler to be invoked.
+     *
+     *  The handler will receive the stanza that triggered it as its argument.
+     *  The handler should return true if it is to be invoked again;
+     *  returning false will remove the handler after it returns.
+     *
+     *  As a convenience, the ns parameters applies to the top level element
+     *  and also any of its immediate children.  This is primarily to make
+     *  matching /iq/query elements easy.
+     *
+     *  The options argument contains handler matching flags that affect how
+     *  matches are determined. 
+     *
+     *  Parameters:
+     *    (Function) handler - The user callback.
+     *    (String) ns - The namespace to match.
+     *    (String) name - The stanza name to match.
+     *    (String) type - The stanza type attribute to match.
+     *    (String) id - The stanza id attribute to match.
+     *    (String) from - The stanza from attribute to match.
+     *    (String) options - The handler options
+     *
+     *  Returns:
+     *    [None]
+     */
+    addHandler: function (handler, ns, name, type, id, from, options)
+    {
+        Sendify.connection.addHandler(handler, ns, name, type, id, from, options);
+    },
+
+
+
+  /** Function: getBareJidFromJid
+     *  Get the bare JID from a JID String.
+     *
+     *  Parameters:
+     *    (String) jid - A JID.
+     *
+     *  Returns:
+     *    A String containing the bare JID.
+     */
+
+    getBareJidFromJid: function (jid)
+      {
+         return jid.split("/")[0];
+     },
+
+  
+   /** Function: getNodeFromJid
+     *  Get the node portion of a JID String.
+     *
+     *  Parameters:
+     *    (String) jid - A JID.
+     *
+     *  Returns:
+     *    A String containing the node.
+     */
+    getNodeFromJid: function (jid)
+    {
+        if (jid.indexOf("@") < 0) { return null; }
+        return jid.split("@")[0];
+    },
+
+
+ fileHandler : function (from, sid, filename, size, mime) {
+   console.log("received");
+    // received a stream initiation
+  // be prepared
+},
+
 
 /** Function: createAccount
  *  Register a account with the server.
@@ -234,6 +307,25 @@ createAccount: function(jid,pass){
     });
 },
 
+/** Function: send
+     *  Send a stanza.
+     *
+     *  This function is called to push data onto the send queue to
+     *  go out over the wire.  Whenever a request is sent to the BOSH
+     *  server, all pending data is sent and the queue is flushed.
+     *
+     *  Parameters:
+     *    (XMLElement |
+     *     [XMLElement] |
+     *     Strophe.Builder) elem - The stanza to send.
+     */
+    send: function (elem){
+
+    Sendify.connection.send(elem);
+    },
+    
+
+
 /** Function: createNode
  *  Create a node to implement pub sub model.
  *  
@@ -246,20 +338,13 @@ createAccount: function(jid,pass){
  *    nodeName on sucessfull creation if the nodeName is specified.
  */
 
-createNode: function(nodeName){
+createNode: function(nodeName,onsuccess,onerror){
   var createiq = $iq({to: "pubsub.sendify",
                             type: "set"})
             .c('pubsub', {xmlns: Sendify.NS_PUBSUB})
             .c('create', {node : nodeName});
         console.log("inside createNode");
-        this.connection.sendIQ(createiq,function(iq){
-            var node =  $(iq).find("create").attr('node');
-            this.node = node;
-            //return node;
-            console.log("Node Created name : " + node);
-        },function(iq){
-           console.log("Node Creation Error " +iq);
-        });
+        this.connection.sendIQ(createiq,onsuccess,onerror);
 },
 
 
@@ -275,22 +360,14 @@ createNode: function(nodeName){
  */
 
 
-subscribeNode: function (nodeName){
+subscribeNode: function (nodeName,onsuccess,onerror){
       var subiq = $iq({to: "pubsub.sendify",type: "set"})
          .c('pubsub', {xmlns: this.NS_PUBSUB})
          .c('subscribe', {node: nodeName,
                           jid: this.connection.jid});
-      console.log("Inside Subscribe Node ");
-      this.connection.sendIQ(subiq,function subscribed(iq){
-          console.log("Successfully subscribed");
-          return true;
-      }, function subscribeError(iq){
-        var err = $(iq).find("error");
-          console.log("Not subscribed"+err);
-          console.log(iq);
-   
-      });
-},
+      //console.log("Inside Subscribe Node ");
+      this.connection.sendIQ(subiq,onsuccess,onerror);
+  },
 
 /** Function: subscribeJidPresence
  *  Subscribe to a particular Jid for presence.If you subscribe to a JID, you will recieve the presence of when the user is online, or when is offline
@@ -317,6 +394,27 @@ subscribeJidPresence: function (JID,name){
 },
 
 
+/** Function: publishNode
+ *  publish information on a particular node. 
+ *  Parameters:
+ *    (String) msg - the message that you want to sent.
+ *    (String) node - the node on which you want to publish.
+ *  Returns:
+ *     [None]
+ */
+
+publishNode : function(msg,node){
+     pubiq = $iq({to: Sendify.service, type: "set"})
+                .c('pubsub', {xmlns: Sendify.NS_PUBSUB})
+                .c('publish', {node: node})
+                .c('item')
+                .c('x', {xmlns: Sendify.NS_DATA_FORMS,
+                         type: "result"})
+                .c(msg);
+                this.connection.sendIQ(pubiq); 
+      console.log("in Publish Node");
+},
+
 /** Function: setStatus
  *  change your present status 
  *  Parameters:
@@ -326,8 +424,6 @@ subscribeJidPresence: function (JID,name){
  *  Returns:
  *     [None]
  */
-
-
 
 setStatus: function(myJID,status,priority){
       var iq = $pres().c("status",status)
@@ -439,7 +535,7 @@ getPreviousPublications: function(nodeName,num){
   console.log("In getPreviousPublications");
           var iq = $iq({type: "get", to: this.service})
                 .c('pubsub',{xmlns: this.NS_PUBSUB})
-                .c('items',{node: nodeName, max_items: num});
+                .c('items',{node: nodeName});
 
             this.connection.sendIQ(iq,function(iq){
               i = 0;
